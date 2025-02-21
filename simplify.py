@@ -3,7 +3,6 @@ import shutil
 from pathlib import Path
 import subprocess
 import nltk
-nltk.download('punkt')
 from nltk.tokenize import word_tokenize
 import tiktoken
 
@@ -12,15 +11,6 @@ DEFAULT_FILES_PER_FOLDER = 100
 FLATTENED_FILE_EXTENSION = ".txt"
 
 def flatten_directory(src_dir, dst_dir, include_list=None, files_per_folder=DEFAULT_FILES_PER_FOLDER):
-    """
-    Simplifies a directory structure, grouping files into folders of a specified size.
-
-    Args:
-        src_dir (str or Path): The path to the source directory.
-        dst_dir (str or Path): The path to the target directory.
-        include_list (list, optional): A list of directories or files to include in the flattening process.
-        files_per_folder (int, optional): The number of files per folder. Defaults to DEFAULT_FILES_PER_FOLDER.
-    """
     src_dir = Path(src_dir)
     dst_dir = Path(dst_dir)
 
@@ -65,20 +55,8 @@ def flatten_directory(src_dir, dst_dir, include_list=None, files_per_folder=DEFA
     open_folder(dst_dir)
 
 def count_tokens(src_dir, include_list=None, tokenizer=None):
-    """
-    Counts the total number of tokens in all files within a directory and its subdirectories.
+    nltk.download('punkt')
 
-    Args:
-        src_dir (str or Path): The path to the source directory.
-        include_list (list, optional): A list of directories or files to include in the token count.
-        tokenizer (str, optional): The tokenizer to use. Available options: "nltk", "tiktoken". If None, returns counts for both tokenizers.
-
-    Returns:
-        tuple: A tuple containing (estimated_tokens, nltk_tokens, tiktoken_tokens).
-               If tokenizer is None, estimated_tokens is the average of nltk_tokens and tiktoken_tokens.
-               If tokenizer is "nltk", estimated_tokens is equal to nltk_tokens.
-               If tokenizer is "tiktoken", estimated_tokens is equal to tiktoken_tokens.
-    """
     total_tokens_nltk = 0
     total_tokens_tiktoken = 0
     for root, _, files in os.walk(src_dir):
@@ -90,13 +68,17 @@ def count_tokens(src_dir, include_list=None, tokenizer=None):
             if include_list and str(relative_path.parent) not in include_list and str(relative_path) not in include_list:
                 continue
 
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
-                tokens_nltk = word_tokenize(content)
-                total_tokens_nltk += len(tokens_nltk)
-                encoding = tiktoken.get_encoding("gpt2")
-                tokens_tiktoken = encoding.encode(content)
-                total_tokens_tiktoken += len(tokens_tiktoken)
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    tokens_nltk = word_tokenize(content)
+                    total_tokens_nltk += len(tokens_nltk)
+                    encoding = tiktoken.get_encoding("gpt2")
+                    tokens_tiktoken = encoding.encode(content)
+                    total_tokens_tiktoken += len(tokens_tiktoken)
+            except UnicodeDecodeError:
+                print(f"Skipping file '{file_path}' due to UnicodeDecodeError.")
+                continue
 
     if tokenizer is None:
         average_tokens = (total_tokens_nltk + total_tokens_tiktoken) // 2
@@ -109,12 +91,6 @@ def count_tokens(src_dir, include_list=None, tokenizer=None):
         raise ValueError(f"Invalid tokenizer: {tokenizer}")
 
 def open_folder(path):
-    """
-    Opens the specified folder in the default file explorer.
-
-    Args:
-        path (str or Path): The path to the folder to open.
-    """
     path = Path(path)
     if os.name == 'nt':  # Windows
         subprocess.Popen(f'explorer.exe "{path}"')
